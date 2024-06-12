@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, fmt::Display, fs::{self, create_dir, read_to_string, File}, i64, str::FromStr};
+use std::{cmp::Ordering, fmt::Display, fs::{self, create_dir, read_to_string, File}, i64};
 use std::{io::{self, BufRead, Write, stdin, stdout, Error}, path::Path};
 use dirs::{self, home_dir};
 
@@ -110,7 +110,7 @@ impl Display for Task {
         writeln!(f, "{}", duration_text)?;
 
         if let Some(time) = self.time {
-            writeln!(f, "{}", time.to_rfc3339())?;
+            writeln!(f, "{}", time.format("%H:%M %d %B %Y"))?;
         }
 
         // Complete / incomplete
@@ -591,43 +591,48 @@ fn ask_index(tasks: &Vec<Task>) -> Option<usize> {
 
 
 
-fn ask_number<T: FromStr>(prefix: &str) -> Option<T> {
+fn ask_number_date(prefix: &str) -> Option<i32> {
     let number = ask_with_prefix(prefix);
-    match number.trim().parse::<T>() {
+    let trimmed = number.trim();
+    match trimmed.parse::<i32>() {
         Ok(v) => Some(v),
         Err(_) => {
-            None
+            if trimmed == "" {
+                None
+            } else {
+                Some(-1)
+            }
         }
     }
 }
 
 fn ask_date() -> Result<Option<DateTime<Local>>, ()> {
     let now = Local::now();
-    let year = ask_number::<i32>("Year: ").unwrap_or(now.year());
-    let month = ask_number::<u32>("Month: ").unwrap_or(now.month());
+    let year = ask_number_date("Year: ").unwrap_or(now.year() as i32);
+    let month = ask_number_date("Month: ").unwrap_or(now.month() as i32);
     if month < 1 || month > 12 {
         eprintln!("Invalid month value: {month}");
         return Err(());
     }
 
-    let day = ask_number::<u32>("Day: ").unwrap_or(now.day());
+    let day = ask_number_date("Day: ").unwrap_or(now.day() as i32);
     if day < 1 || day > 31 {
         eprintln!("Invalid day value: {day}");
         return Err(());
     }
 
-    let hour = ask_number::<u32>("Hour: ").unwrap_or(now.hour());
+    let hour = ask_number_date("Hour: ").unwrap_or(now.hour() as i32);
     if hour > 23 {
         eprintln!("Invalid hour value: {hour}");
         return Err(());
     }
 
-    let min = ask_number::<u32>("Minute: ").unwrap_or(now.minute());
+    let min = ask_number_date("Minute: ").unwrap_or(now.minute() as i32);
     if min > 59 {
         eprintln!("Invalid minute value: {min}");
     }
 
-    match Local.with_ymd_and_hms(year, month, day, hour, min, 0) {
+    match Local.with_ymd_and_hms(year, month as u32, day as u32, hour as u32, min as u32, 0) {
         chrono::offset::LocalResult::Single(date) => Ok(Some(date)),
         chrono::offset::LocalResult::Ambiguous(_, _) |
             chrono::offset::LocalResult::None => {
