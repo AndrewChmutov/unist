@@ -2,7 +2,7 @@ use std::{cmp::Ordering, fmt::Display, fs::{self, create_dir, read_to_string, Fi
 use std::{io::{self, BufRead, Write, stdin, stdout, Error}, path::Path};
 use dirs::{self, home_dir};
 
-use chrono::{DateTime, Datelike, Local, TimeDelta, TimeZone, Timelike};
+use chrono::{offset::LocalResult, DateTime, Datelike, Local, NaiveDate, TimeDelta, TimeZone, Timelike, Weekday};
 use colored::{ColoredString, Colorize};
 
 static DAYS_LEFT: i32 = 2;
@@ -148,6 +148,12 @@ impl Todo {
                 PromptState::Modify => self.modify_menu(),
                 PromptState::Delete => self.delete_menu(),
                 PromptState::Check => self.check_menu(),
+                PromptState::Calendar => {
+                    let calendar = Calendar::new(Local::now(), &self.tasks);
+                    calendar.render();
+                    println!();
+                    PromptState::Start
+                }
                 PromptState::Sort => {
                     self.sort_tasks();
                     self.print_tasks(TaskLayout::Headers, true);
@@ -165,8 +171,9 @@ impl Todo {
         println!("3 - Add the task");
         println!("4 - Modify the task");
         println!("5 - Delete the task");
-        println!("6 - Sort the tasks");
-        println!("7 - Quit");
+        println!("6 - Calendar");
+        println!("7 - Sort the tasks");
+        println!("8 - Quit");
 
         let mut answer;
         loop {
@@ -198,8 +205,9 @@ impl Todo {
             "3" | "add" | "a"       => return PromptState::Add,
             "4" | "modify" | "m"    => return PromptState::Modify,
             "5" | "delete" | "d"    => return PromptState::Delete,
-            "6" | "sort" | "s"      => return PromptState::Sort,
-            "7" | "quit" | "q"      => return PromptState::Quit,
+            "6" | "calendar" | "cal"=> return PromptState::Calendar,
+            "7" | "sort" | "s"      => return PromptState::Sort,
+            "8" | "quit" | "q"      => return PromptState::Quit,
             _ => println!("No such option: {} \n", answer[0])
         };
 
@@ -462,6 +470,86 @@ impl Todo {
 }
 
 
+struct Calendar<'a> {
+    date: DateTime<Local>,
+    tasks: &'a Vec<Task>
+}
+
+impl<'a> Calendar<'a> {
+    fn new(date: DateTime<Local>, tasks: &'a Vec<Task>) -> Self {
+        Calendar { date, tasks }
+    }
+
+    fn render(&self) {
+        // Render the calendar and apply coloring logic
+        let (first_day, num_days) = self.get_month_info();
+        let weekday_labels = "Mo Tu We Th Fr Sa Su";
+        println!("{}{}", " ".repeat(weekday_labels.len() / 2 - 2), self.get_month_name());
+        println!("{}", weekday_labels);
+
+        for _ in 0..first_day {
+            print!("   ");
+        }
+
+        for day in 1..=num_days {
+            let date = self.date.date_naive().with_day(day).expect("Could not set day correctly");
+            let task_count = self.tasks.iter().filter(|t| t.time.map_or(false, |d| d.date_naive() == date)).count();
+            let mut colored_day = self.color_day(day, task_count);
+
+            if date == Local::now().date_naive() {
+                colored_day = colored_day.black().on_white();
+            }
+
+            print!("{:>2} ", colored_day);
+            if (day + first_day) % 7 == 0 {
+                println!();
+            }
+        }
+        println!();
+    }
+
+    fn get_month_info(&self) -> (u32, u32) {
+        let first_day = self.date.weekday().num_days_from_monday();
+
+        let year = self.date.year();
+        let month = self.date.month();
+
+        let num_days = NaiveDate::from_ymd_opt(year, month + 1, 1)
+            .unwrap_or(NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap())
+            .signed_duration_since(NaiveDate::from_ymd_opt(year, month, 1).unwrap())
+            .num_days() as u32;
+
+        (first_day, num_days)
+    }
+
+    fn get_month_name(&self) -> &str {
+        match self.date.month() {
+            1 => "Jan",
+            2 => "Feb",
+            3 => "Mar",
+            4 => "Apr",
+            5 => "May",
+            6 => "Jun",
+            7 => "Jul",
+            8 => "Aug",
+            9 => "Sep",
+            10 => "Oct",
+            11 => "Nov",
+            12 => "Dec",
+            _ => "Unknown",
+        }
+    }
+
+    fn color_day(&self, day: u32, task_count: usize) -> ColoredString {
+        match task_count {
+            0 => day.to_string().white(),
+            1 | 2 => day.to_string().yellow(),
+            _ => day.to_string().red(),
+        }
+    }
+}
+
+
 enum TaskStatus {
     Panic,
     Normal,
@@ -474,6 +562,7 @@ enum PromptState {
     Modify,
     Delete,
     Check,
+    Calendar,
     Sort,
     Quit
 }
