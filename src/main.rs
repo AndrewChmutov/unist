@@ -509,14 +509,21 @@ impl<'a> Calendar<'a> {
     }
 
     fn get_month_info(&self) -> (u32, u32) {
-        let first_day = self.date.weekday().num_days_from_monday();
-
         let year = self.date.year();
         let month = self.date.month();
 
-        let num_days = NaiveDate::from_ymd_opt(year, month + 1, 1)
-            .unwrap_or(NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap())
-            .signed_duration_since(NaiveDate::from_ymd_opt(year, month, 1).unwrap())
+        let current_month_first_day = NaiveDate::from_ymd_opt(year, month, 1)
+            .unwrap();
+
+        let next_month_first_day = NaiveDate::from_ymd_opt(year, month + 1, 1)
+            .unwrap_or(NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap());
+
+        let first_day = current_month_first_day
+            .weekday()
+            .num_days_from_monday();
+
+        let num_days = next_month_first_day
+            .signed_duration_since(current_month_first_day)
             .num_days() as u32;
 
         (first_day, num_days)
