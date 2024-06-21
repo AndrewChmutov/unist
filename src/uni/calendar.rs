@@ -13,20 +13,34 @@ impl<'a> Calendar<'a> {
         Calendar { date, tasks }
     }
 
-    pub fn render(&self) {
-        // Render the calendar and apply coloring logic
-        let (first_day, num_days) = self.get_month_info();
-        let weekday_labels = "Mo Tu We Th Fr Sa Su";
-        println!("{}{}", " ".repeat(weekday_labels.len() / 2 - 2), self.get_month_name());
-        println!("{}", weekday_labels);
+    pub fn render_month_buffer_ym(&self, year: i32, month: u32) -> Vec<String> {
+        let (first_day, num_days) = Self::get_month_info_ym(year, month);
+        let weekday_labels = "Mo Tu We Th Fr Sa Su ";
+        let mut result = vec![];
+
+        let lspaces = " ".repeat(weekday_labels.len() / 2 - 2);
+        let rspaces = " ".repeat(weekday_labels.len() - lspaces.len() - 3);
+        result.push(format!(
+            "{}{}{}",
+            lspaces,
+            Self::get_month_name_m(month),
+            rspaces
+        ));
+
+        result.push(weekday_labels.to_owned());
+
+        let mut current = "".to_owned();
 
         for _ in 0..first_day {
-            print!("   ");
+            current += "   ";
         }
 
         for day in 1..=num_days {
-            let date = self.date.date_naive().with_day(day).expect("Could not set day correctly");
-            let task_count = self.tasks.iter().filter(|t| t.time.map_or(false, |d| d.date_naive() == date)).count();
+            let date = NaiveDate::from_ymd_opt(year, month, day).expect("Could not set the date");
+            let task_count = self.tasks
+                .iter()
+                .filter(|t| t.time.map_or(false, |d| d.date_naive() == date))
+                .count();
             let mut colored_day = self.color_day(day, task_count);
 
             if date == Local::now().date_naive() {
@@ -37,18 +51,85 @@ impl<'a> Calendar<'a> {
                 });
             }
 
-            print!("{:>2} ", colored_day);
+            current += format!("{:>2} ", colored_day).as_str();
             if (day + first_day) % 7 == 0 {
-                println!();
+                result.push(current);
+                current = "".to_owned();
             }
         }
-        println!();
+
+        let total = first_day + num_days;
+        let filled = if total % 7 == 0 {
+            total
+        } else {
+            (total as f32 / 7f32).floor() as u32 * 7 + 7
+        };
+        let padding_len = (filled - total) as usize;
+        let padding = "   ".repeat(padding_len);
+        result.push(current + &padding);
+
+        result
     }
 
-    fn get_month_info(&self) -> (u32, u32) {
+    pub fn render_month_buffer_m(&self, month: u32) -> Vec<String> {
+        let year = self.date.year();
+
+        self.render_month_buffer_ym(year, month)
+    }
+
+    pub fn render_month_buffer(&self) -> Vec<String> {
         let year = self.date.year();
         let month = self.date.month();
 
+        self.render_month_buffer_ym(year, month)
+    }
+
+    pub fn render(&self) {
+        let lines = self.render_month_buffer();
+        for line in lines.iter() {
+            println!("{line}");
+        }
+
+        println!();
+    }
+
+    pub fn render3(&self) {
+        let (previous_year, previous_month) = if self.date.month() == 1 {
+            (self.date.year() - 1, 12u32)
+        } else {
+            (self.date.year(), self.date.month() - 1)
+        };
+
+        let (next_year, next_month) = if self.date.month() == 12 {
+            (self.date.year() + 1, 1)
+        } else {
+            (self.date.year(), self.date.month() + 1)
+        };
+
+        let months = [
+            self.render_month_buffer_ym(previous_year, previous_month),
+            self.render_month_buffer(),
+            self.render_month_buffer_ym(next_year, next_month)
+        ];
+
+        let month_width = months[0][0].len();
+        let max_height = months
+            .iter()
+            .map(|el| el.len())
+            .max().unwrap_or(0);
+
+        let hpadding = " ".repeat(month_width);
+        let vpadding = " ".repeat(2);
+        for i in 0..max_height {
+            for j in 0..months.len() {
+                print!("{}{}", months[j].get(i).unwrap_or(&hpadding), vpadding);
+            }
+
+            println!();
+        }
+    }
+
+    fn get_month_info_ym(year: i32, month: u32) -> (u32, u32) {
         let current_month_first_day = NaiveDate::from_ymd_opt(year, month, 1)
             .unwrap();
 
@@ -66,8 +147,21 @@ impl<'a> Calendar<'a> {
         (first_day, num_days)
     }
 
-    fn get_month_name(&self) -> &str {
-        match self.date.month() {
+    fn get_month_info_m(&self, month: u32) -> (u32, u32) {
+        let year = self.date.month();
+
+        Self::get_month_info_ym(year as i32, month)
+    }
+
+    fn get_month_info(&self) -> (u32, u32) {
+        let year = self.date.year();
+        let month = self.date.month();
+
+        Self::get_month_info_ym(year, month)
+    }
+
+    fn get_month_name_m(month: u32) -> String {
+        match month {
             1 => "Jan",
             2 => "Feb",
             3 => "Mar",
@@ -81,7 +175,13 @@ impl<'a> Calendar<'a> {
             11 => "Nov",
             12 => "Dec",
             _ => "Unknown",
-        }
+        }.to_owned()
+    }
+
+    fn get_month_name(&self) -> String {
+        let month = self.date.month();
+
+        Self::get_month_name_m(month)
     }
 
     fn color_day(&self, day: u32, task_count: usize) -> ColoredString {

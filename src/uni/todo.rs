@@ -232,7 +232,7 @@ impl Todo {
                 PromptState::Check => self.check_menu(),
                 PromptState::Calendar => {
                     let calendar = Calendar::new(Local::now(), &self.tasks);
-                    calendar.render();
+                    calendar.render3();
                     println!();
                     PromptState::Start
                 }
