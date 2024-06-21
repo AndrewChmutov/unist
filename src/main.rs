@@ -3,7 +3,7 @@ use std::{io::{self, BufRead, Write, stdin, stdout, Error}, path::Path};
 use dirs::{self, home_dir};
 
 use chrono::{offset::LocalResult, DateTime, Datelike, Local, NaiveDate, TimeDelta, TimeZone, Timelike, Weekday};
-use colored::{ColoredString, Colorize};
+use colored::{ColoredString, Colorize, Color};
 
 static DAYS_LEFT: i32 = 2;
 static TABLE_PATH: &str = ".local/state/rasker/";
@@ -497,7 +497,11 @@ impl<'a> Calendar<'a> {
             let mut colored_day = self.color_day(day, task_count);
 
             if date == Local::now().date_naive() {
-                colored_day = colored_day.black().on_white();
+                colored_day = colored_day.on_color(Color::TrueColor {
+                    r: 96u8,
+                    g: 96u8,
+                    b: 96u8
+                });
             }
 
             print!("{:>2} ", colored_day);
