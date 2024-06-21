@@ -1,5 +1,5 @@
 use std::{cmp::Ordering, fmt::Display, fs::{self, create_dir, read_to_string, File}, i64};
-use std::{io::{self, BufRead, Write, stdin, stdout, Error}, path::Path};
+use std::{io::{self, BufRead, Write, stdin, stdout, Error}, path::{Path, PathBuf}};
 use dirs::{self, home_dir};
 
 use chrono::{offset::LocalResult, DateTime, Datelike, Local, NaiveDate, TimeDelta, TimeZone, Timelike, Weekday};
@@ -125,12 +125,16 @@ impl Display for Task {
 }
 
 struct Todo {
-    tasks: Vec<Task>
+    tasks: Vec<Task>,
+    filename: PathBuf
 }
 
 impl Todo {
-    fn new(tasks: Vec<Task>) -> Self {
-        Self {tasks}
+    fn new(tasks: Vec<Task>, filename: PathBuf) -> Self {
+        Self {
+            tasks,
+            filename
+        }
     }
 
     fn panic_lookup(&self) {
@@ -163,6 +167,14 @@ impl Todo {
                     self.print_tasks(TaskLayout::Headers, true);
                     PromptState::Start
                 }
+                PromptState::Write => {
+                    match self.save() {
+                        Ok(_) => println!("Successfully written!"),
+                        _ => println!("Could not write!")
+                    }
+                    println!();
+                    PromptState::Start
+                }
                 PromptState::Quit => break
             }
         }
@@ -177,7 +189,8 @@ impl Todo {
         println!("5 - Delete the task");
         println!("6 - Calendar");
         println!("7 - Sort the tasks");
-        println!("8 - Quit");
+        println!("8 - Write the tasks");
+        println!("9 - Quit");
 
         let mut answer;
         loop {
@@ -211,7 +224,8 @@ impl Todo {
             "5" | "delete" | "d"    => return PromptState::Delete,
             "6" | "calendar" | "cal"=> return PromptState::Calendar,
             "7" | "sort" | "s"      => return PromptState::Sort,
-            "8" | "quit" | "q"      => return PromptState::Quit,
+            "8" | "write"| "w"      => return PromptState::Write,
+            "9" | "quit" | "q"      => return PromptState::Quit,
             _ => println!("No such option: {} \n", answer[0])
         };
 
@@ -370,12 +384,12 @@ impl Todo {
         PromptState::Start
     }
 
-    fn save(&self, path_to_save: &Path) -> io::Result<()> {
+    fn save(&self) -> io::Result<()> {
         let answer = ask_with_prefix("Do you want to save the tasks? (Y/n): ");
         match answer.trim().to_lowercase().as_str() {
             "y" | "yes" | "" => {
                 println!("Saving tasks to the {TABLE_NAME}...");
-                self.write_tasks(path_to_save)
+                self.write_tasks(&self.filename)
             }
             _ => Ok(())
         }
@@ -578,6 +592,7 @@ enum PromptState {
     Delete,
     Check,
     Calendar,
+    Write,
     Sort,
     Quit
 }
@@ -779,11 +794,11 @@ fn main() -> io::Result<()> {
 
     println!("Loading tasks from {TABLE_NAME}...");
     let tasks = Task::read_tasks(Path::new(&dir))?;
-    let mut app = Todo::new(tasks);
+    let mut app = Todo::new(tasks, dir.to_owned());
 
     app.panic_lookup();
     app.run();
-    app.save(&dir)?;
+    app.save()?;
 
     Ok(())
 }
