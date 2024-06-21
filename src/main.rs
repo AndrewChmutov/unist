@@ -4,11 +4,15 @@ use dirs::{self, home_dir};
 
 use chrono::{offset::LocalResult, DateTime, Datelike, Local, NaiveDate, TimeDelta, TimeZone, Timelike, Weekday};
 use colored::{ColoredString, Colorize, Color};
+use crossterm::{
+    cursor,
+    execute,
+    terminal::{Clear, ClearType},
+};
 
 static DAYS_LEFT: i32 = 2;
 static TABLE_PATH: &str = ".local/state/rasker/";
 static TABLE_NAME: &str = "kek.csv";
-static BOLD_SEPARATOR: &str =   "************************************************************";
 static SEPARATOR: &str =        "------------------------------";
 static FLUSH_ERROR: &str = "Could not flush to the standard output";
 static STDIN_ERROR: &str = "Could not read from the standard input";
@@ -619,9 +623,16 @@ fn duration_label(duration: &Option<TimeDelta>, long: bool) -> String {
 }
 
 fn clear_screen() {
-    println!("\n{BOLD_SEPARATOR}");
-    print!("\x1B[2J\x1B[1;1H");
-    stdout().flush().expect(FLUSH_ERROR);
+    // println!("\n{BOLD_SEPARATOR}");
+    // print!("\x1B[2J\x1B[1;1H");
+    // stdout().flush().expect(FLUSH_ERROR);
+    execute!(stdout(), Clear(ClearType::All)).expect(FLUSH_ERROR);
+    execute!(stdout(), crossterm::terminal::Clear(ClearType::Purge)).unwrap();
+    execute!(
+        stdout(),
+        Clear(ClearType::All),  // Clear the entire visible screen
+        cursor::MoveTo(0, 0)            // Move cursor to the top-left corner
+    ).unwrap();
 }
 
 
