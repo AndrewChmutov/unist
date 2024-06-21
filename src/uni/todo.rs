@@ -283,10 +283,9 @@ impl Todo {
 
         match answer[0].as_str() {
             "1" | "list" | "l" => {
-                let command = match answer.get(1) {
-                    Some(command) => command,
-                    None => "s"
-                };
+                let command = answer.get(1)
+                    .map(|s| s.as_str())
+                    .unwrap_or("s");
 
                 match command {
                     "all" | "a"     => self.print_tasks(TaskLayout::All, true),
@@ -302,7 +301,18 @@ impl Todo {
             "3" | "add" | "a"       => return PromptState::Add,
             "4" | "modify" | "m"    => return PromptState::Modify,
             "5" | "delete" | "d"    => return PromptState::Delete,
-            "6" | "calendar" | "cal"=> return PromptState::Calendar,
+            "6" | "calendar" | "cal"=> {
+                let command = answer.get(1)
+                    .map(|s| s.as_str())
+                    .unwrap_or("m");
+
+                let calendar = Calendar::new(Local::now(), &self.tasks);
+                match command {
+                    "month" | "m"   => calendar.render(),
+                    "3"             => calendar.render3(),
+                    _ => ()
+                }
+            }
             "7" | "sort" | "s"      => return PromptState::Sort,
             "8" | "write"| "w"      => return PromptState::Write,
             "9" | "quit" | "q"      => return PromptState::Quit,
