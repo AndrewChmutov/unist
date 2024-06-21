@@ -194,7 +194,13 @@ impl Todo {
 
         let mut answer;
         loop {
-            answer = prompt_input();
+            let input = prompt_input();
+            if input.is_none() {
+                return PromptState::Quit;
+            }
+
+            answer = input.unwrap();
+
             if answer.len() != 0 {
                 break;
             }
@@ -385,7 +391,7 @@ impl Todo {
     }
 
     fn save(&self) -> io::Result<()> {
-        let answer = ask_with_prefix("Do you want to save the tasks? (Y/n): ");
+        let answer = ask_with_prefix("\nDo you want to save the tasks? (Y/n): ");
         match answer.trim().to_lowercase().as_str() {
             "y" | "yes" | "" => {
                 println!("Saving tasks to the {TABLE_NAME}...");
@@ -672,14 +678,20 @@ fn time_quantity_format(str: &str, num: i32) -> Option<String> {
 
 
 
-fn prompt_input() -> Vec<String> {
-    ask_with_prefix("> ")
-        .to_lowercase()
-        .split(" ")
-        .map(|v| v.trim())
-        .filter(|v| !v.is_empty())
-        .map(|v| v.to_owned())
-        .collect::<Vec<String>>()
+fn prompt_input() -> Option<Vec<String>> {
+    let input = ask_with_prefix("> ");
+    if input == "" {
+        None
+    } else {
+        Some(input
+            .to_lowercase()
+            .split(" ")
+            .map(|v| v.trim())
+            .filter(|v| !v.is_empty())
+            .map(|v| v.to_owned())
+            .collect::<Vec<String>>())
+    }
+
 }
 
 
