@@ -182,7 +182,6 @@ enum PromptState {
     Modify,
     Delete,
     Check,
-    Calendar,
     Write,
     Sort,
     Quit
@@ -230,12 +229,6 @@ impl Todo {
                 PromptState::Modify => self.modify_menu(),
                 PromptState::Delete => self.delete_menu(),
                 PromptState::Check => self.check_menu(),
-                PromptState::Calendar => {
-                    let calendar = Calendar::new(Local::now(), &self.tasks);
-                    calendar.render3();
-                    println!();
-                    PromptState::Start
-                }
                 PromptState::Sort => {
                     self.sort_tasks();
                     self.print_tasks(TaskLayout::Headers, true);
@@ -310,6 +303,7 @@ impl Todo {
                 match command {
                     "month" | "m"   => calendar.render(),
                     "3"             => calendar.render3(),
+                    "year"  | "y"   => calendar.render_year(),
                     _ => ()
                 }
             }

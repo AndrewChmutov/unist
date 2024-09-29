@@ -59,11 +59,11 @@ impl<'a> Calendar<'a> {
         }
 
         let total = first_day + num_days;
-        let filled = if total % 7 == 0 {
-            total
-        } else {
-            (total as f32 / 7f32).floor() as u32 * 7 + 7
-        };
+        if total % 7 == 0 {
+            return result
+        }
+
+        let filled = (total as f32 / 7f32).floor() as u32 * 7 + 7;
         let padding_len = (filled - total) as usize;
         let padding = "   ".repeat(padding_len);
         result.push(current + &padding);
@@ -89,26 +89,24 @@ impl<'a> Calendar<'a> {
         for line in lines.iter() {
             println!("{line}");
         }
-
-        println!();
     }
 
-    pub fn render3(&self) {
+    pub fn render3_ym(&self, year: i32, month: u32) {
         let (previous_year, previous_month) = if self.date.month() == 1 {
-            (self.date.year() - 1, 12u32)
+            (year - 1, 12u32)
         } else {
-            (self.date.year(), self.date.month() - 1)
+            (year, month - 1)
         };
 
         let (next_year, next_month) = if self.date.month() == 12 {
-            (self.date.year() + 1, 1)
+            (year + 1, 1)
         } else {
-            (self.date.year(), self.date.month() + 1)
+            (year, month + 1)
         };
 
         let months = [
             self.render_month_buffer_ym(previous_year, previous_month),
-            self.render_month_buffer(),
+            self.render_month_buffer_ym(year, month),
             self.render_month_buffer_ym(next_year, next_month)
         ];
 
@@ -125,6 +123,21 @@ impl<'a> Calendar<'a> {
                 print!("{}{}", months[j].get(i).unwrap_or(&hpadding), vpadding);
             }
 
+            println!();
+        }
+    }
+
+    pub fn render3(&self) {
+        let year = self.date.year();
+        let month = self.date.month();
+        self.render3_ym(year, month);
+    }
+
+    pub fn render_year(&self) {
+        let year = self.date.year();
+
+        for i in (2..12).step_by(3) {
+            self.render3_ym(year, i);
             println!();
         }
     }
