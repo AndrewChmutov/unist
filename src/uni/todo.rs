@@ -2,8 +2,8 @@ use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 use std::io::{self, stdout, stdin, Write, BufRead};
 use std::fs;
-use chrono::{DateTime, Datelike, Local, TimeZone, Timelike, TimeDelta};
-use colored::{Colorize, ColoredString};
+use chrono::format::Fixed;
+use chrono::{DateTime, Datelike, FixedOffset, Local, TimeDelta, TimeZone, Timelike}; use colored::{Colorize, ColoredString};
 
 use crossterm::{
     cursor,
@@ -75,7 +75,7 @@ fn ask_number_date(prefix: &str) -> Option<i32> {
     }
 }
 
-fn ask_date() -> Result<Option<DateTime<Local>>, ()> {
+fn ask_date() -> Result<Option<DateTime<FixedOffset>>, ()> {
     let now = Local::now();
     let year = ask_number_date("Year: ").unwrap_or(now.year() as i32);
     let month = ask_number_date("Month: ").unwrap_or(now.month() as i32);
@@ -102,7 +102,7 @@ fn ask_date() -> Result<Option<DateTime<Local>>, ()> {
     }
 
     match Local.with_ymd_and_hms(year, month as u32, day as u32, hour as u32, min as u32, 0) {
-        chrono::offset::LocalResult::Single(date) => Ok(Some(date)),
+        chrono::offset::LocalResult::Single(date) => Ok(Some(date.fixed_offset())),
         chrono::offset::LocalResult::Ambiguous(_, _) |
             chrono::offset::LocalResult::None => {
 
@@ -363,7 +363,8 @@ impl Todo {
             description:    description.trim().to_owned(),
             subject:        subject.trim().to_owned(),
             time,
-            complete
+            complete,
+            starred: false,
         };
 
         println!("{}\n{:?}\n{}",

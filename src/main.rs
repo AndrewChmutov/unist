@@ -1,15 +1,40 @@
-use std::path::Path;
-use dirs::{self, home_dir};
-use std::io::{self, Error};
 use std::fs::{self, File};
+use std::io::{self, stdin, stdout, BufRead, Error, Write};
+use std::path::Path;
+
 
 mod constants;
+mod readers;
+mod storages;
+mod ui;
 mod uni;
 
-use uni::{todo::Todo, task::Task};
+use ui::{
+    app::App,
+    panes::{DescriptionPane, TasksPane},
+};
+
+use readers::EditorTaskReader;
+use ui::colors::StandardTaskColors;
+use storages::TomlStorage;
+
+use dirs::{self, home_dir};
+
+// use uni::{todo::Todo, task::Task};
+fn ask_with_prefix(prefix: &str) -> String {
+    print!("{}", prefix);
+    stdout().flush().expect(constants::FLUSH_ERROR);
+
+    let mut buf = "".to_owned();
+    stdin()
+        .lock()
+        .read_line(&mut buf)
+        .expect(constants::STDIN_ERROR);
+
+    buf
+}
 
 fn main() -> io::Result<()> {
-    uni::todo::clear_screen();
     let mut dir = match home_dir() {
         Some(dir) => dir,
         None => return Err(Error::other("Could not find a home directory")),
@@ -30,12 +55,29 @@ fn main() -> io::Result<()> {
     }
 
     println!("Loading tasks from {}...", constants::TABLE_NAME);
-    let tasks = Task::read_tasks(Path::new(&dir))?;
-    let mut app = Todo::new(tasks, dir.to_owned());
 
-    app.panic_lookup();
-    app.run();
-    app.save()?;
+    let mut terminal = ratatui::init();
+    terminal.clear()?;
+    let mut app = App::<StandardTaskColors, EditorTaskReader, TomlStorage>::new(
+        Box::new(TasksPane::new()),
+        Box::new(DescriptionPane::default()),
+        dir.clone(),
+    )?;
+    let app_result = app.run(terminal);
+    ratatui::restore();
+    app_result?;
 
+    // if app.should_save() {
+    //     let answer = ask_with_prefix("\nDo you want to save the tasks? (Y/n): ");
+    //     match answer.trim().to_lowercase().as_str() {
+    //         "y" | "yes" | "" => {
+    //             println!("Saving tasks to the {}...", constants::TABLE_NAME);
+    //             app.save()
+    //         }
+    //         _ => Ok(()),
+    //     }
+    // } else {
+    //     Ok(())
+    // }
     Ok(())
 }

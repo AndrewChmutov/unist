@@ -1,8 +1,4 @@
-use std::io;
-use std::fs;
-use std::path::Path;
-
-use chrono::{DateTime, TimeDelta, Local};
+use chrono::{DateTime, FixedOffset, Local, TimeDelta};
 
 use crate::constants;
 
@@ -12,22 +8,36 @@ pub enum TaskStatus {
     Zen,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Task {
     pub name: String,
     pub description: String,
     pub subject: String,
-    pub time: Option<DateTime<Local>>,
-    pub complete: bool
+    pub time: Option<DateTime<FixedOffset>>,
+    pub complete: bool,
+    pub starred: bool,
+}
+
+impl Default for Task {
+    fn default() -> Self {
+        Self {
+            name: "[Name]".to_string(),
+            description: "Description_goes_here".to_string(),
+            subject: "[Subject]".to_string(),
+            time: Some(Local::now().fixed_offset()),
+            complete: false,
+            starred: false,
+        }
+    }
 }
 
 impl Task {
-    pub fn get_delta(&self, target: &DateTime<Local>) -> Option<TimeDelta> {
+    pub fn get_delta(&self, target: &DateTime<FixedOffset>) -> Option<TimeDelta> {
         self.time.clone().map(|v| v - target)
     }
 
     pub fn get_delta_now(&self) -> Option<TimeDelta> {
-        self.get_delta(&Local::now())
+        self.get_delta(&Local::now().fixed_offset())
     }
 
     pub fn get_status(&self, duration: &Option<TimeDelta>) -> TaskStatus {
@@ -54,35 +64,63 @@ impl Task {
         self.get_status(&duration)
     }
 
-    fn read_task(csv_declaration: &str) -> Result<Task, ()> {
-        let words: Vec<&str> = csv_declaration.split(',').collect();
-        if words.len() < 5 {
-            return Err(());
-        }
-
-        Ok(Task {
-            name:           words[0].to_owned(),
-            description:    words[1].to_owned(),
-            subject:        words[2].to_owned(),
-            time:           match DateTime::parse_from_rfc3339(words[3]) {
-                                Ok(date) => Some(date.into()),
-                                Err(_) => None
-                            },
-            complete:       words[4].trim().parse::<bool>().map_err(|_| ())?
-        })
+    pub fn name(&self) -> &str {
+        &self.name
     }
 
-    pub fn read_tasks(path_to_file: &Path) -> io::Result<Vec<Task>> {
-        let file_content = fs::read_to_string(path_to_file)?;
-        let mut tasks = vec![];
+    pub fn subject(&self) -> &str {
+        &self.subject
+    }
 
-        for (i, line) in file_content.lines().enumerate() {
-            match Task::read_task(line) {
-                Ok(task) => tasks.push(task),
-                Err(_) => eprintln!("Could not parse line #{i}: {line}")
-            }
+    fn time_quantity_format(str: &str, num: i32) -> Option<String> {
+        if num == 1 || num == -1 {
+            Some(num.to_string() + " " +  str)
+        } else if num > 1 || num < -1 {
+            Some(num.to_string() + " " + str + "s")
+        } else {
+            None
         }
+    }
 
-        Ok(tasks)
+    pub fn delta(&self) -> String {
+        if let Some(duration) = self.get_delta_now() {
+            if duration.abs() < TimeDelta::minutes(1) {
+                return "No time!".to_string();
+            }
+            // Format time until the task
+            let days    = duration.num_days() as i32;
+            let hours   = duration.num_hours() as i32 - duration.num_days() as i32 * 24;
+            let minutes = duration.num_minutes() as i32 - duration.num_hours() as i32 * 60;
+
+            let days = Self::time_quantity_format("day", days);
+            let hours = Self::time_quantity_format("hour", hours);
+            let minutes = Self::time_quantity_format("minute", minutes);
+
+            let mut units = vec![];
+            if let Some(days) = days {units.push(days)}
+            if let Some(hours) = hours {units.push(hours)}
+
+            // TODO: Tackle the long/short format
+            let long = true;
+            if long {
+                if let Some(minutes) = minutes {units.push(minutes)}
+            }
+
+            if units.len() == 0 {
+                return "".to_owned();
+            }
+
+
+            return units.join(" ");
+        } else {
+            "∞".to_owned()
+        }
+    }
+
+    pub fn is_default(&self) -> bool {
+        let mut default_task = Self::default();
+        default_task.time = self.time.clone();
+
+        self == &default_task
     }
 }
